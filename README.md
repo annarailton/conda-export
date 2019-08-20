@@ -79,7 +79,3 @@ Needs the `ruamel.yaml` package which you can install via either
 pip install ruamel.yaml
 conda install ruamel.yaml -c conda-forge
 ```
-
-## TODO
-
-* [ ] Sort out pip dependencies

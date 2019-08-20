@@ -1,22 +1,12 @@
-"""Converts the output of
+"""
+`conda env export` loses the specific channel information for each dependency.
+
+This script fixes this by converting the output of
 
     conda list --show-channel-urls
 
 to an env.yml file, correctly mapping dependencies with non-default channels to
-those channels e.g.
-
-# Name                    Version                   Build  Channel
-airflow                   1.10.3post1              py36_0    conda-forge
-airflow-with-mysql        1.10.3                        1    conda-forge
-alembic                   0.9.10                   py36_0    defaults
-
-to
-
-dependencies:
-- conda-forge::airflow-with-mysql=1.10.3=1
-- conda-forge::airflow=1.10.3post1=py36_0
-- alembic=0.9.10=py36_0
-
+those channels. See the README.md for an example.
 """
 import argparse
 import os
@@ -70,6 +60,7 @@ if __name__ == '__main__':
     env_data['channels'] = ['defaults']
     dependency_list = []
     dependency_with_channels = []
+    dependency_pip = []
 
     rows = outs.decode('utf-8').split('\n')
     rows = list(filter(None, rows))  # remove empty strings (= empty lines)
@@ -81,25 +72,31 @@ if __name__ == '__main__':
                 env_data['prefix'] = env_loc
                 env_data['name'] = os.path.basename(env_loc)
             continue
-        res = row.split()
-        if res[-1] == 'defaults':
-            dependency_list.append('='.join(res[0:-1]))
+        data = row.split()
+        if data[-1] == 'defaults':
+            dependency_list.append('='.join(data[0:-1]))
+        elif data[-1] == 'pypi':
+            dependency_pip.append(tuple(data[:2]))  # no build info
         else:
-            dependency_with_channels.append(tuple(res))
+            dependency_with_channels.append(tuple(data))
 
-    dependency_with_channels = sorted(
-        dependency_with_channels, key=lambda x: x[3])  # sort by channel
+    dependency_with_channels = sorted(dependency_with_channels,
+                                      key=lambda x: x[-1])  # sort by channel
     dependency_with_channels_list = [
-        res[-1] + '::' + '='.join(res[0:-1])
-        for res in dependency_with_channels
+        d[-1] + '::' + '='.join(d[0:-1]) for d in dependency_with_channels
     ]
-    env_data['dependencies'] = dependency_with_channels_list + dependency_list
+    pip_dict = {'pip': ['='.join(d) for d in dependency_pip]}
+    env_data[
+        'dependencies'] = dependency_with_channels_list + dependency_list + [
+            pip_dict
+        ]
 
     class MyRepresenter(ruamel.yaml.representer.RoundTripRepresenter):
         pass
 
-    ruamel.yaml.add_representer(
-        OrderedDict, MyRepresenter.represent_dict, representer=MyRepresenter)
+    ruamel.yaml.add_representer(OrderedDict,
+                                MyRepresenter.represent_dict,
+                                representer=MyRepresenter)
 
     yaml = ruamel.yaml.YAML()
     yaml.Representer = MyRepresenter
