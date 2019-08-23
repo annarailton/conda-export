@@ -85,11 +85,16 @@ if __name__ == '__main__':
     dependency_with_channels_list = [
         d[-1] + '::' + '='.join(d[0:-1]) for d in dependency_with_channels
     ]
-    pip_dict = {'pip': ['='.join(d) for d in dependency_pip]}
-    env_data[
-        'dependencies'] = dependency_with_channels_list + dependency_list + [
-            pip_dict
-        ]
+    if dependency_pip:
+        pip_dict = {'pip': ['='.join(d) for d in dependency_pip]}
+        env_data[
+            'dependencies'] = dependency_with_channels_list + dependency_list + [
+                pip_dict
+            ]
+    else:
+        env_data[
+            'dependencies'] = dependency_with_channels_list + dependency_list
+
 
     class MyRepresenter(ruamel.yaml.representer.RoundTripRepresenter):
         pass
